@@ -1,15 +1,15 @@
-import os.path
-import sys
-import re
-import sqlite3
+#!/usr/bin/env python3
+import os.path, sys, re, sqlite3, requests, feedparser, configparser
+
 from datetime import datetime, timedelta
-
-import feedparser
 from mastodon import Mastodon
-import requests
+from twitter_scraper import get_tweets
 
-if len(sys.argv) < 4:
-    print("Usage: python3 tootbot.py twitter_account mastodon_login mastodon_passwd mastodon_instance [max_days [footer_tags]]")  # noqa
+config = configparser.ConfigParser()
+try:
+    config.read_file(open('tootbot.cfg'))
+except:
+    print("Please create a config file (tootbot.cfg)")
     sys.exit(1)
 
 # sqlite db to store processed tweets (and corresponding toots ids)
@@ -18,41 +18,28 @@ db = sql.cursor()
 db.execute('''CREATE TABLE IF NOT EXISTS tweets (tweet text, toot text,
            twitter text, mastodon text, instance text)''')
 
-if len(sys.argv) > 4:
-    instance = sys.argv[4]
-else:
-    instance = 'amicale.net'
-
-if len(sys.argv) > 5:
-    days = int(sys.argv[5])
-else:
-    days = 1
-
-if len(sys.argv) > 6:
-    tags = sys.argv[6]
-else:
-    tags = None
-
-source = sys.argv[1]
-mastodon = sys.argv[2]
-passwd = sys.argv[3]
+source = config['DEFAULT']['twitter_handle']
+mastodon = config['DEFAULT']['mastodon_email']
+passwd = config['DEFAULT']['mastodon_password']
+instance = config['DEFAULT']['mastodon_instance']
+tags = config['DEFAULT']['custom_tags']
+days = int(config['DEFAULT']['days'])
 
 mastodon_api = None
 
-if source[:4] == 'http':
-    d = feedparser.parse(source)
-    twitter = None
-else:
-    d = feedparser.parse('http://twitrss.me/twitter_user_to_rss/?user='+source)
-    twitter = source
+posts = []
+ts = get_tweets(source, pages=1)
+for t in ts:
+    posts.append({'id': 'https://twitter.com/' + source + '/' + t['tweetId'], 'author': '(@' + source + ')', 'published_parsed': t['time'], 'title': t['text'], 'media': t['entries']['photos']})
+twitter = source
 
-for t in reversed(d.entries):
+for t in reversed(posts):
     # check if this tweet has been processed
-    db.execute('SELECT * FROM tweets WHERE tweet = ? AND twitter = ?  and mastodon = ? and instance = ?', (t.id, source, mastodon, instance))  # noqa
+    db.execute('SELECT * FROM tweets WHERE tweet = ? AND twitter = ?  and mastodon = ? and instance = ?', (t['id'], source, mastodon, instance))  # noqa
     last = db.fetchone()
-    dt = t.published_parsed
-    age = datetime.now()-datetime(dt.tm_year, dt.tm_mon, dt.tm_mday,
-                                  dt.tm_hour, dt.tm_min, dt.tm_sec)
+    dt = t['published_parsed']
+    age = datetime.now()-datetime(dt.year, dt.month, dt.day,
+                                  dt.hour, dt.minute, dt.second)
     # process only unprocessed tweets less than 1 day old
     if last is None and age < timedelta(days=days):
         if mastodon_api is None:
@@ -83,13 +70,12 @@ for t in reversed(d.entries):
                 print("ERROR: First Login Failed!")
                 sys.exit(1)
 
-        c = t.title
-        if twitter and t.author.lower() != ('(@%s)' % twitter).lower():
-            c = ("RT https://twitter.com/%s\n" % t.author[2:-1]) + c
+        c = t['title']
+        if twitter and t['author'].lower() != ('(@%s)' % twitter).lower():
+            c = ("RT https://twitter.com/%s\n" % t['author'][2:-1]) + c
         toot_media = []
-        # get the pictures...
-        for p in re.finditer(r"https://pbs.twimg.com/[^ \xa0\"]*", t.summary):
-            media = requests.get(p.group(0))
+        for p in t['media']:
+            media = requests.get(p)
             media_posted = mastodon_api.media_post(media.content, mime_type=media.headers.get('content-type'))
             toot_media.append(media_posted['id'])
 
@@ -110,6 +96,9 @@ for t in reversed(d.entries):
         # remove ellipsis
         c = c.replace('\xa0…', ' ')
 
+        # remove reference to own account
+        c = c.replace('@' + source, '')
+
         if twitter is None:
             c = c + '\nSource: '+ t.authors[0].name +'\n\n' + t.link
 
@@ -124,5 +113,5 @@ for t in reversed(d.entries):
                                             spoiler_text=None)
             if "id" in toot:
                 db.execute("INSERT INTO tweets VALUES ( ? , ? , ? , ? , ? )",
-                           (t.id, toot["id"], source, mastodon, instance))
+                           (t['id'], toot["id"], source, mastodon, instance))
                 sql.commit()

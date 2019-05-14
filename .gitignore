@@ -1,3 +1,5 @@
 *.secret
+*.db
 cron.sh
-
+env
+tootbot.cfg
