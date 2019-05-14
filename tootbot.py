@@ -97,7 +97,7 @@ for t in reversed(posts):
         c = c.replace('\xa0…', ' ')
 
         # remove reference to own account
-        c = c.replace('@' + source, '')
+        c = c.replace('@' + source, '@' + source + '@twitter.com')
 
         if twitter is None:
             c = c + '\nSource: '+ t.authors[0].name +'\n\n' + t.link
