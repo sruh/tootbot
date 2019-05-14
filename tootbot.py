@@ -30,7 +30,7 @@ mastodon_api = None
 posts = []
 ts = get_tweets(source, pages=1)
 for t in ts:
-    posts.append({'id': 'https://twitter.com/' + source + '/' + t['tweetId'], 'author': '(@' + source + ')', 'published_parsed': t['time'], 'title': t['text'], 'media': t['entries']['photos']})
+    posts.append({'id': 'https://twitter.com/' + source + '/status/' + t['tweetId'], 'author': '(@' + source + ')', 'published_parsed': t['time'], 'title': t['text'], 'media': t['entries']['photos']})
 twitter = source
 
 for t in reversed(posts):
