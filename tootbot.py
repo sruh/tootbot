@@ -30,7 +30,7 @@ mastodon_api = None
 posts = []
 ts = get_tweets(source, pages=1)
 for t in ts:
-    posts.append({'id': 'https://twitter.com/' + source + '/status/' + t['tweetId'], 'author': '(@' + source + ')', 'published_parsed': t['time'], 'title': t['text'], 'media': t['entries']['photos']})
+    posts.append({'id': 'https://twitter.com/' + source + '/status/' + t['tweetId'], 'author': '(@' + t['author'] + ')', 'published_parsed': t['time'], 'title': t['text'], 'media': t['entries']['photos']})
 twitter = source
 
 for t in reversed(posts):
@@ -72,7 +72,7 @@ for t in reversed(posts):
 
         c = t['title']
         if twitter and t['author'].lower() != ('(@%s)' % twitter).lower():
-            c = ("RT https://twitter.com/%s\n" % t['author'][2:-1]) + c
+            c = ("RT %s@twitter.com\n" % t['author'][1:-1]) + c
         toot_media = []
         for p in t['media']:
             media = requests.get(p)
