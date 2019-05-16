@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os.path, sys, re, sqlite3, requests, feedparser, configparser
+import os.path, sys, re, sqlite3, requests, configparser
 
 from datetime import datetime, timedelta
 from mastodon import Mastodon
