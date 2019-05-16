@@ -1,0 +1,14 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+mastodon-py = "*"
+requests = "*"
+twitter-scraper = {editable = true,git = "https://github.com/sruh/twitter-scraper.git"}
+
+[requires]
+python_version = "3.7"
